@@ -4,7 +4,6 @@ module Phoenix.Socket
         , Socket
         , heartbeatIntervallSeconds
         , init
-        , map
         , onAbnormalClose
         , onClose
         , onNormalClose
@@ -14,6 +13,9 @@ module Phoenix.Socket
         , withParams
         , withoutHeartbeat
         )
+
+import Phoenix.Types exposing (Msg)
+
 
 {-| A socket declares to which endpoint a socket connection should be established.
 
@@ -28,8 +30,6 @@ module Phoenix.Socket
 @docs init, withParams, heartbeatIntervallSeconds, withoutHeartbeat, reconnectTimer, withDebug, onAbnormalClose, onNormalClose, onOpen, onClose, map
 
 -}
-
-
 type alias Time =
     Float
 
@@ -50,6 +50,7 @@ type alias AbnormalClose =
 
 type alias PhoenixSocket msg =
     { endpoint : String
+    , parentMsg : Msg msg -> msg
     , params : List ( String, String )
     , heartbeatIntervall : Time
     , withoutHeartbeat : Bool
@@ -67,9 +68,10 @@ type alias PhoenixSocket msg =
     init "ws://localhost:4000/socket/websocket"
 
 -}
-init : String -> Socket msg
-init endpoint =
+init : String -> (Msg msg -> msg) -> Socket msg
+init endpoint parentMsg =
     { endpoint = endpoint
+    , parentMsg = parentMsg
     , params = []
     , heartbeatIntervall = 30 * 1000
     , withoutHeartbeat = False
@@ -182,18 +184,21 @@ defaultReconnectTimer failedAttempts =
         toFloat (min 15000 (1000 * failedAttempts))
 
 
-{-| Composes each callback with the function `a -> b`.
--}
-map : (a -> b) -> Socket a -> Socket b
-map func socket =
-    { endpoint = socket.endpoint
-    , params = socket.params
-    , heartbeatIntervall = socket.heartbeatIntervall
-    , withoutHeartbeat = socket.withoutHeartbeat
-    , reconnectTimer = socket.reconnectTimer
-    , debug = socket.debug
-    , onOpen = Maybe.map func socket.onOpen
-    , onClose = Maybe.map ((<<) func) socket.onClose
-    , onNormalClose = Maybe.map func socket.onNormalClose
-    , onAbnormalClose = Maybe.map ((<<) func) socket.onAbnormalClose
-    }
+
+-- TOOD: fix this
+-- {-| Composes each callback with the function `a -> b`.
+-- -}
+-- map : (a -> b) -> Socket a -> Socket b
+-- map func socket =
+--     { endpoint = socket.endpoint
+--     , parentMsg = socket.parentMsg >> func
+--     , params = socket.params
+--     , heartbeatIntervall = socket.heartbeatIntervall
+--     , withoutHeartbeat = socket.withoutHeartbeat
+--     , reconnectTimer = socket.reconnectTimer
+--     , debug = socket.debug
+--     , onOpen = Maybe.map func socket.onOpen
+--     , onClose = Maybe.map ((<<) func) socket.onClose
+--     , onNormalClose = Maybe.map func socket.onNormalClose
+--     , onAbnormalClose = Maybe.map ((<<) func) socket.onAbnormalClose
+--     }
