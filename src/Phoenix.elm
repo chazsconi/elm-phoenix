@@ -22,8 +22,8 @@ new =
     { socketState = Disconnected, channelStates = ChannelStates.new, pushRef = 0, pushes = Dict.empty }
 
 
-push : Socket msg -> Push msg -> Cmd msg
-push { parentMsg } p =
+push : String -> (Msg msg -> msg) -> Push msg -> Cmd msg
+push endpoint parentMsg p =
     Cmd.map parentMsg <|
         Task.perform (\_ -> SendPush p) (Task.succeed Ok)
 
@@ -54,11 +54,11 @@ update socket channels msg model =
 
                 Connected ->
                     let
-                        ( updatedChannelStates, newTopics, removedChannelObjs ) =
+                        ( updatedChannelStates, newChannels, removedChannelObjs ) =
                             ChannelStates.update channels model.channelStates
 
                         cmds =
-                            List.map Ports.joinChannel newTopics
+                            List.map (\c -> Ports.joinChannel { topic = c.topic, payload = Maybe.withDefault JE.null c.payload }) newChannels
                                 ++ List.map Ports.leaveChannel removedChannelObjs
                     in
                     ( { model | channelStates = updatedChannelStates }, Cmd.batch cmds, Nothing )
@@ -160,8 +160,8 @@ update socket channels msg model =
                     ( model, Cmd.none, Nothing )
 
 
-connect : Socket msg -> List (Channel msg) -> Sub msg
-connect socket channels =
+connect : Socket msg -> (Msg msg -> msg) -> List (Channel msg) -> Sub msg
+connect socket parentMsg channels =
     let
         tickInterval =
             if socket.debug then
@@ -169,7 +169,7 @@ connect socket channels =
             else
                 10
     in
-    Sub.map socket.parentMsg <|
+    Sub.map parentMsg <|
         Sub.batch
             [ Ports.channelEvent parseChannelEvent
             , Time.every tickInterval Tick

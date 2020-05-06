@@ -23,7 +23,7 @@ port channelEvent : (ChannelEvent -> msg) -> Sub msg
 port connectSocket : { endpoint : String, params : JE.Value } -> Cmd msg
 
 
-port joinChannel : Topic -> Cmd msg
+port joinChannel : { topic : Topic, payload : JE.Value } -> Cmd msg
 
 
 port leaveChannel : ChannelObj -> Cmd msg

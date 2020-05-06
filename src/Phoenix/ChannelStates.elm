@@ -58,17 +58,17 @@ topics (ChannelStates cs) =
 
 {-| Topics that are in the list of topics but not in channel state
 -}
-newTopics : List Topic -> ChannelStates -> List Topic
-newTopics topics1 channelStates =
+newChannels : List (Channel msg) -> ChannelStates -> List (Channel msg)
+newChannels channels channelStates =
     List.foldl
-        (\topic acc ->
-            if member topic channelStates then
+        (\channel acc ->
+            if member channel.topic channelStates then
                 acc
             else
-                topic :: acc
+                channel :: acc
         )
         []
-        topics1
+        channels
 
 
 removedTopics : List Topic -> ChannelStates -> ( List Topic, List ChannelObj )
@@ -103,21 +103,18 @@ removeTopics topics1 channelStates =
     List.foldl remove channelStates topics1
 
 
-update : List (Channel msg) -> ChannelStates -> ( ChannelStates, List Topic, List ChannelObj )
+update : List (Channel msg) -> ChannelStates -> ( ChannelStates, List (Channel msg), List ChannelObj )
 update channels channelStates =
     let
-        topics1 =
-            List.map .topic channels
-
-        newTopics1 =
-            newTopics topics1 channelStates
+        newChannels1 =
+            newChannels channels channelStates
 
         ( removedTopics1, removedChannelObjs ) =
-            removedTopics topics1 channelStates
+            removedTopics (List.map .topic channels) channelStates
 
         updatedChannelStates =
             channelStates
-                |> addTopics newTopics1
+                |> addTopics (List.map .topic newChannels1)
                 |> removeTopics removedTopics1
     in
-    ( updatedChannelStates, newTopics1, removedChannelObjs )
+    ( updatedChannelStates, newChannels1, removedChannelObjs )
