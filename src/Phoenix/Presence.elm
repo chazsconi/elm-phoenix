@@ -1,4 +1,4 @@
-module Phoenix.Presence exposing (Presence, create, onChange, onJoins, onLeaves, map)
+module Phoenix.Presence exposing (Presence, create, map, onChange, onJoins, onLeaves)
 
 {-| Presence is an extension for channels to support the Presence feature of Phoenix.
 
@@ -83,4 +83,4 @@ map func pres =
         f =
             Maybe.map ((<<) func)
     in
-        { pres | onChange = f pres.onChange, onJoins = f pres.onJoins, onLeaves = f pres.onLeaves }
+    { onChange = f pres.onChange, onJoins = f pres.onJoins, onLeaves = f pres.onLeaves }

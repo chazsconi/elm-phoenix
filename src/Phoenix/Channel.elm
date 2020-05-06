@@ -1,28 +1,33 @@
 module Phoenix.Channel
     exposing
         ( Channel
+        , Topic
         , init
-        , withPayload
-        , onRequestJoin
-        , onJoin
-        , onRejoin
-        , onJoinError
-        , onError
-        , onDisconnect
+        , map
         , on
+        , onDisconnect
+        , onError
+        , onJoin
+        , onJoinError
         , onLeave
         , onLeaveError
-        , withPresence
+        , onRejoin
+        , onRequestJoin
         , withDebug
-        , map
+        , withPayload
+        , withPresence
         )
 
 {-| A channel declares which topic should be joined, registers event handlers and has various callbacks for possible lifecycle events.
 
+
 # Definition
+
 @docs Channel
 
+
 # Helpers
+
 @docs init, withPayload, on, onJoin, onRequestJoin, onJoinError, onError, onDisconnect, onRejoin, onLeave, onLeaveError, withDebug, map
 @docs init, withPayload, on, onJoin, onRequestJoin, onJoinError, onError, onDisconnect, onRejoin, onLeave, onLeaveError, withDebug, withPresence, map
 
@@ -42,8 +47,12 @@ type alias Channel msg =
     PhoenixChannel msg
 
 
+type alias Topic =
+    String
+
+
 type alias PhoenixChannel msg =
-    { topic : String
+    { topic : Topic
     , payload : Maybe Value
     , onRequestJoin : Maybe msg
     , onJoin : Maybe (Value -> msg)
@@ -62,8 +71,9 @@ type alias PhoenixChannel msg =
 {-| Initialize a channel to a given topic.
 
     init "room:lobby"
+
 -}
-init : String -> Channel msg
+init : Topic -> Channel msg
 init topic =
     { topic = topic
     , payload = Nothing
@@ -88,6 +98,7 @@ init topic =
 
     init "room:lobby"
         |> withPayload payload
+
 -}
 withPayload : Value -> Channel msg -> Channel msg
 withPayload payload_ chan =
@@ -100,6 +111,7 @@ withPayload payload_ chan =
 
     init "roomy:lobby"
         |> on "new_msg" NewMsg
+
 -}
 on : String -> (Value -> msg) -> Channel msg -> Channel msg
 on event cb chan =
@@ -113,6 +125,7 @@ on event cb chan =
 
     init "room:lobby"
         |> onRequestJoin JoinLobbyRequested
+
 -}
 onRequestJoin : msg -> Channel msg -> Channel msg
 onRequestJoin onRequestJoin_ chan =
@@ -126,6 +139,7 @@ onRequestJoin onRequestJoin_ chan =
 
     init "room:lobby"
         |> onJoin IsOnline
+
 -}
 onJoin : (Value -> msg) -> Channel msg -> Channel msg
 onJoin onJoin_ chan =
@@ -146,6 +160,7 @@ onJoin onJoin_ chan =
         |> onJoinError CouldNotJoin
 
 **Note**: If a channel declined a request to join a topic the effect manager won_t try again.
+
 -}
 onJoinError : (Value -> msg) -> Channel msg -> Channel msg
 onJoinError onJoinError_ chan =
@@ -159,6 +174,7 @@ onJoinError onJoinError_ chan =
 
     init "room:lobby"
         |> onError ChannelCrashed
+
 -}
 onError : msg -> Channel msg -> Channel msg
 onError onError_ chan =
@@ -174,6 +190,7 @@ onError onError_ chan =
         |> onDisconnect IsOffline
 
 **Note**: The effect manager will automatically try to reconnect to the server and to rejoin the channel. See `onRejoin` for details.
+
 -}
 onDisconnect : msg -> Channel msg -> Channel msg
 onDisconnect onDisconnect_ chan =
@@ -187,6 +204,7 @@ onDisconnect onDisconnect_ chan =
 
     init "room:lobby"
         |> onRejoin IsOnline
+
 -}
 onRejoin : (Value -> msg) -> Channel msg -> Channel msg
 onRejoin onRejoin_ chan =
@@ -200,6 +218,7 @@ onRejoin onRejoin_ chan =
 
     init "room:lobby"
         |> onLeave LeftLobby
+
 -}
 onLeave : (Value -> msg) -> Channel msg -> Channel msg
 onLeave onLeave_ chan =
@@ -207,7 +226,7 @@ onLeave onLeave_ chan =
 
 
 {-| Set a callback which will be called if the server declined your request to left a channel.
-*(It seems that Phoenix v1.2 doesn_t send this)*
+_(It seems that Phoenix v1.2 doesn_t send this)_
 -}
 onLeaveError : (Value -> msg) -> Channel msg -> Channel msg
 onLeaveError onLeaveError_ chan =
@@ -221,6 +240,7 @@ onLeaveError onLeaveError_ chan =
 
     init "room:lobby"
         |> onPresenceChange PresenceChange
+
 -}
 withPresence : Presence msg -> Channel msg -> Channel msg
 withPresence presence chan =
@@ -236,20 +256,22 @@ map func chan =
             Maybe.map ((<<) func)
 
         channel =
-            { chan
-                | onRequestJoin = Maybe.map func chan.onRequestJoin
-                , onJoin = f chan.onJoin
-                , onJoinError = f chan.onJoinError
-                , onError = Maybe.map func chan.onError
-                , onDisconnect = Maybe.map func chan.onDisconnect
-                , onRejoin = f chan.onRejoin
-                , onLeave = f chan.onLeave
-                , onLeaveError = f chan.onLeaveError
-                , presence = Maybe.map (Presence.map func) chan.presence
-                , on = Dict.map (\_ a -> func << a) chan.on
+            { topic = chan.topic
+            , payload = chan.payload
+            , onRequestJoin = Maybe.map func chan.onRequestJoin
+            , onJoin = f chan.onJoin
+            , onJoinError = f chan.onJoinError
+            , onError = Maybe.map func chan.onError
+            , onDisconnect = Maybe.map func chan.onDisconnect
+            , onRejoin = f chan.onRejoin
+            , onLeave = f chan.onLeave
+            , onLeaveError = f chan.onLeaveError
+            , presence = Maybe.map (Presence.map func) chan.presence
+            , on = Dict.map (\_ a -> func << a) chan.on
+            , debug = chan.debug
             }
     in
-        channel
+    channel
 
 
 {-| Print all status changes.

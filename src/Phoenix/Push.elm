@@ -1,4 +1,4 @@
-module Phoenix.Push exposing (Push, init, withPayload, onOk, onError, map)
+module Phoenix.Push exposing (Push, init, map, onError, onOk, withPayload)
 
 {-| A message to push informations to a channel.
 
@@ -97,4 +97,4 @@ map func push =
         f =
             Maybe.map ((<<) func)
     in
-        { push | onOk = f push.onOk, onError = f push.onError }
+    { topic = push.topic, event = push.event, payload = push.payload, onOk = f push.onOk, onError = f push.onError }
