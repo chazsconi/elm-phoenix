@@ -1,4 +1,4 @@
-module Phoenix.ChannelStates exposing (ChannelObj, ChannelStates, new, setCreated, update)
+module Phoenix.ChannelStates exposing (ChannelObj, ChannelStates, getJoinedChannelObj, new, setCreated, setJoined, update)
 
 import Dict exposing (Dict)
 import Json.Encode as JE
@@ -26,9 +26,55 @@ new =
     ChannelStates Dict.empty
 
 
+getJoinedChannelObj : Topic -> ChannelStates -> Maybe ChannelObj
+getJoinedChannelObj topic (ChannelStates channelStates) =
+    Dict.get topic channelStates
+        |> Maybe.andThen
+            (\channelState ->
+                case channelState of
+                    Creating ->
+                        Nothing
+
+                    PendingJoin _ ->
+                        Nothing
+
+                    Joined channelObj ->
+                        Just channelObj
+            )
+
+
 setCreated : Topic -> ChannelObj -> ChannelStates -> ChannelStates
 setCreated topic1 channelObj (ChannelStates channelStates) =
     ChannelStates <| Dict.insert topic1 (PendingJoin channelObj) channelStates
+
+
+setJoined : Topic -> ChannelStates -> ChannelStates
+setJoined topic_ (ChannelStates channelStates) =
+    ChannelStates <|
+        Dict.update topic_
+            (\channelState ->
+                case channelState of
+                    Nothing ->
+                        Nothing
+
+                    Just (PendingJoin obj) ->
+                        Just (Joined obj)
+
+                    Just (Joined obj) ->
+                        let
+                            _ =
+                                Debug.log "setJoined for already joined channel: " topic_
+                        in
+                        Just (Joined obj)
+
+                    Just Creating ->
+                        let
+                            _ =
+                                Debug.log "setJoined for creating channel: " topic_
+                        in
+                        Just Creating
+            )
+            channelStates
 
 
 insert : Topic -> ChannelStates -> ChannelStates

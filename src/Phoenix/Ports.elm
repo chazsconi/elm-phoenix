@@ -29,4 +29,4 @@ port joinChannel : { topic : Topic, payload : JE.Value } -> Cmd msg
 port leaveChannel : ChannelObj -> Cmd msg
 
 
-port push : { ref : Int, topic : Topic, event : Event, payload : JE.Value } -> Cmd msg
+port pushChannel : { ref : Int, channel : ChannelObj, event : Event, payload : JE.Value } -> Cmd msg

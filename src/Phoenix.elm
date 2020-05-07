@@ -1,5 +1,14 @@
 module Phoenix exposing (connect, new, push, update)
 
+{-| Entrypoint for Phoenix
+
+
+# Definition
+
+@docs connect, new, push, update
+
+-}
+
 import Dict
 import Json.Decode as JD
 import Json.Encode as JE
@@ -17,17 +26,23 @@ import Time
 -- Code:  https://github.com/saschatimme/elm-phoenix
 
 
+{-| Initialise the model
+-}
 new : Model msg
 new =
     { socketState = Disconnected, channelStates = ChannelStates.new, pushRef = 0, pushes = Dict.empty }
 
 
+{-| Push an event to a channel
+-}
 push : String -> (Msg msg -> msg) -> Push msg -> Cmd msg
 push endpoint parentMsg p =
     Cmd.map parentMsg <|
         Task.perform (\_ -> SendPush p) (Task.succeed Ok)
 
 
+{-| Update the model
+-}
 update : Socket msg -> List (Channel msg) -> Msg msg -> Model msg -> ( Model msg, Cmd msg, Maybe msg )
 update socket channels msg model =
     let
@@ -64,13 +79,22 @@ update socket channels msg model =
                     ( { model | channelStates = updatedChannelStates }, Cmd.batch cmds, Nothing )
 
         SendPush p ->
-            ( { model
-                | pushes = Dict.insert model.pushRef p model.pushes
-                , pushRef = model.pushRef + 1
-              }
-            , Ports.push { ref = model.pushRef, topic = p.topic, event = p.event, payload = p.payload }
-            , Nothing
-            )
+            case ChannelStates.getJoinedChannelObj p.topic model.channelStates of
+                Nothing ->
+                    let
+                        _ =
+                            Debug.log "Push on unjoined channel - ignoring: " p.topic
+                    in
+                    ( model, Cmd.none, Nothing )
+
+                Just channelObj ->
+                    ( { model
+                        | pushes = Dict.insert model.pushRef p model.pushes
+                        , pushRef = model.pushRef + 1
+                      }
+                    , Ports.pushChannel { ref = model.pushRef, channel = channelObj, event = p.event, payload = p.payload }
+                    , Nothing
+                    )
 
         ChannelPushOk topic pushRef payload ->
             case Dict.get pushRef model.pushes of
@@ -95,17 +119,25 @@ update socket channels msg model =
             )
 
         ChannelJoinOk topic payload ->
+            let
+                updatedModel =
+                    { model | channelStates = ChannelStates.setJoined topic model.channelStates }
+            in
             case List.filter (\c -> c.topic == topic) channels of
                 [ channel ] ->
                     case channel.onJoin of
                         Nothing ->
-                            ( model, Cmd.none, Nothing )
+                            ( updatedModel, Cmd.none, Nothing )
 
                         Just onJoinMsg ->
-                            ( model, Cmd.none, Just (onJoinMsg payload) )
+                            ( updatedModel, Cmd.none, Just (onJoinMsg payload) )
 
                 _ ->
-                    ( model, Cmd.none, Nothing )
+                    let
+                        _ =
+                            Debug.log "ChannelJoinOk for channel no longer subscribed to: " topic
+                    in
+                    ( updatedModel, Cmd.none, Nothing )
 
         ChannelJoinError topic payload ->
             case List.filter (\c -> c.topic == topic) channels of
@@ -160,6 +192,8 @@ update socket channels msg model =
                     ( model, Cmd.none, Nothing )
 
 
+{-| Connect the socket
+-}
 connect : Socket msg -> (Msg msg -> msg) -> List (Channel msg) -> Sub msg
 connect socket parentMsg channels =
     let

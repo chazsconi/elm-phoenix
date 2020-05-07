@@ -28,7 +28,7 @@ module Phoenix.Channel
 
 # Helpers
 
-@docs init, withPayload, on, onJoin, onRequestJoin, onJoinError, onError, onDisconnect, onRejoin, onLeave, onLeaveError, withDebug, map
+@docs init, withPayload, on, onJoin, onRequestJoin, onJoinError, onError, onDisconnect, onRejoin, onLeave, onLeaveError, withDebug, map, Topic
 @docs init, withPayload, on, onJoin, onRequestJoin, onJoinError, onError, onDisconnect, onRejoin, onLeave, onLeaveError, withDebug, withPresence, map
 
 -}
@@ -47,6 +47,8 @@ type alias Channel msg =
     PhoenixChannel msg
 
 
+{-| Topic of channel
+-}
 type alias Topic =
     String
 
