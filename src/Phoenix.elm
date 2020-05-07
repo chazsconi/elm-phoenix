@@ -1,11 +1,11 @@
-module Phoenix exposing (connect, new, push, update)
+module Phoenix exposing (connect, mapMsg, new, push, update)
 
 {-| Entrypoint for Phoenix
 
 
 # Definition
 
-@docs connect, new, push, update
+@docs connect, new, push, update, mapMsg
 
 -}
 
@@ -294,3 +294,42 @@ parseChannelEvent ( eventName, topic, data ) =
                     Debug.log "ChannelEvent parsing error : " ( eventName, topic, err )
             in
             NoOp
+
+
+{-| Map the msg
+-}
+mapMsg : (a -> b) -> Msg a -> Msg b
+mapMsg func msg =
+    case msg of
+        SendPush push ->
+            SendPush (Phoenix.Push.map func push)
+
+        NoOp ->
+            NoOp
+
+        Tick time ->
+            Tick time
+
+        ChannelCreated a b ->
+            ChannelCreated a b
+
+        ChannelJoinOk a b ->
+            ChannelJoinOk a b
+
+        ChannelJoinError a b ->
+            ChannelJoinError a b
+
+        ChannelLeaveOk a b ->
+            ChannelLeaveOk a b
+
+        ChannelLeaveError a b ->
+            ChannelLeaveError a b
+
+        ChannelPushOk a b c ->
+            ChannelPushOk a b c
+
+        ChannelPushError a b c ->
+            ChannelPushError a b c
+
+        ChannelMessage a b c ->
+            ChannelMessage a b c
