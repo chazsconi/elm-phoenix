@@ -18,7 +18,7 @@ type alias PushRef =
 
 type Msg msg
     = NoOp
-    | Tick Time.Time -- Elm 0.19 Time.Posix
+    | Tick Time.Posix
     | SendPush (Push msg)
     | ChannelCreated Topic JD.Value
     | ChannelJoinOk Topic JD.Value

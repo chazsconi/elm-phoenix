@@ -62,7 +62,7 @@ update socket channels msg model =
                     ( { model | socketState = Connected }
                     , Ports.connectSocket
                         { endpoint = socket.endpoint
-                        , params = JE.object <| List.map (\( k, v ) -> ( k, JE.string v )) socket.params -- Elm 0.19 JE.dict identity JE.string (Dict.fromList socket.params)
+                        , params = JE.dict identity JE.string (Dict.fromList socket.params)
                         }
                     , Nothing
                     )
@@ -301,8 +301,8 @@ parseChannelEvent ( eventName, topic, data ) =
 mapMsg : (a -> b) -> Msg a -> Msg b
 mapMsg func msg =
     case msg of
-        SendPush push ->
-            SendPush (Phoenix.Push.map func push)
+        SendPush push_ ->
+            SendPush (Phoenix.Push.map func push_)
 
         NoOp ->
             NoOp
