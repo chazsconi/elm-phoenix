@@ -63,3 +63,7 @@ If you want to contribute but don't know what here are some ideas:
 
 ## Feedback
 If you use the package in your project, I would love to hear how your experience is and if you have some ideas for improvements!
+
+
+## TODO
+* Move Msg out of Types
