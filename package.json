@@ -1,9 +1,33 @@
 {
-  "name": "elm_phoenix",
-  "version": "0.1.0-dev",
-  "description": "JS for Elm Phoenix ports",
-  "main": "js/elm_phoenix.js",
+  "_from": "github:chazsconi/elm-phoenix#ports-elm19",
+  "_id": "elm_phoenix@0.1.0-dev",
+  "_inBundle": false,
+  "_integrity": "sha1-6xtLXspgVd4Si01g+gimTyaJprU=",
+  "_location": "/elm_phoenix",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "git",
+    "raw": "elm_phoenix@github:chazsconi/elm-phoenix#ports-elm19",
+    "name": "elm_phoenix",
+    "escapedName": "elm_phoenix",
+    "rawSpec": "github:chazsconi/elm-phoenix#ports-elm19",
+    "saveSpec": "github:chazsconi/elm-phoenix#ports-elm19",
+    "fetchSpec": null,
+    "gitCommittish": "ports-elm19"
+  },
+  "_requiredBy": [
+    "/"
+  ],
+  "_resolved": "github:chazsconi/elm-phoenix#871c767cbc27f990a664ff877e1f1708b1124abb",
+  "_spec": "elm_phoenix@github:chazsconi/elm-phoenix#ports-elm19",
+  "_where": "/Users/charles.bernasconi/repositories/xbm/apps/xingbox_manager_web/assets",
+  "bundleDependencies": false,
   "dependencies": {
     "phoenix": "^1.5.1"
-  }
+  },
+  "deprecated": false,
+  "description": "JS for Elm Phoenix ports",
+  "main": "js/elm_phoenix.js",
+  "name": "elm_phoenix",
+  "version": "0.1.0-dev"
 }

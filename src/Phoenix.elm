@@ -12,7 +12,7 @@ module Phoenix exposing (connect, mapMsg, new, push, update)
 import Dict
 import Json.Decode as JD
 import Json.Encode as JE
-import Phoenix.Channel exposing (Channel)
+import Phoenix.Channel exposing (Channel, Topic)
 import Phoenix.ChannelStates as ChannelStates
 import Phoenix.Ports as Ports
 import Phoenix.Push exposing (Push)
@@ -72,8 +72,14 @@ update socket channels msg model =
                         ( updatedChannelStates, newChannels, removedChannelObjs ) =
                             ChannelStates.update channels model.channelStates
 
+                        newChannelsCmd =
+                            Ports.joinChannels <| List.map (\c -> { topic = c.topic, payload = Maybe.withDefault JE.null c.payload }) newChannels
+
+                        _ =
+                            Debug.log "To join count" (List.length newChannels)
+
                         cmds =
-                            List.map (\c -> Ports.joinChannel { topic = c.topic, payload = Maybe.withDefault JE.null c.payload }) newChannels
+                            [ newChannelsCmd ]
                                 ++ List.map Ports.leaveChannel removedChannelObjs
                     in
                     ( { model | channelStates = updatedChannelStates }, Cmd.batch cmds, Nothing )
@@ -114,6 +120,20 @@ update socket channels msg model =
 
         ChannelCreated topic channelObj ->
             ( { model | channelStates = ChannelStates.setCreated topic channelObj model.channelStates }
+            , Cmd.none
+            , Nothing
+            )
+
+        ChannelsCreated channelsCreated ->
+            ( { model
+                | channelStates =
+                    List.foldl
+                        (\( topic, channelObj ) acc ->
+                            ChannelStates.setCreated topic channelObj acc
+                        )
+                        model.channelStates
+                        channelsCreated
+              }
             , Cmd.none
             , Nothing
             )
@@ -201,11 +221,12 @@ connect socket parentMsg channels =
             if socket.debug then
                 1000
             else
-                10
+                500
     in
     Sub.map parentMsg <|
         Sub.batch
             [ Ports.channelEvent parseChannelEvent
+            , Ports.channelsCreated ChannelsCreated
             , Time.every tickInterval Tick
             ]
 
@@ -312,6 +333,9 @@ mapMsg func msg =
 
         ChannelCreated a b ->
             ChannelCreated a b
+
+        ChannelsCreated v ->
+            ChannelsCreated v
 
         ChannelJoinOk a b ->
             ChannelJoinOk a b

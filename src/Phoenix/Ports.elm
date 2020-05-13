@@ -20,10 +20,17 @@ port channelMsg : (ChannelMsg -> msg) -> Sub msg
 port channelEvent : (ChannelEvent -> msg) -> Sub msg
 
 
+port channelsCreated : (List ( Topic, JE.Value ) -> msg) -> Sub msg
+
+
 port connectSocket : { endpoint : String, params : JE.Value } -> Cmd msg
 
 
-port joinChannel : { topic : Topic, payload : JE.Value } -> Cmd msg
+
+-- port joinChannel : { topic : Topic, payload : JE.Value } -> Cmd msg
+
+
+port joinChannels : List { topic : Topic, payload : JE.Value } -> Cmd msg
 
 
 port leaveChannel : ChannelObj -> Cmd msg
