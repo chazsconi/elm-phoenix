@@ -9,25 +9,23 @@ export function init(app) {
     console.log(msg, data)
   }
 
-  let pushHandlers = (push, channel, type, ref) => {
-    push
-      .receive("ok", (msg) => {
-        if (channel.topic.startsWith("xbsxx:")) {
-          console.log("Skipping ", channel.topic)
-        } else {
-          log("push ok", {
-            topic: channel.topic,
-            type: type,
-            ref: ref
-          })
-          app.ports.channelEvent.send(["pushOk", channel.topic, {
-            type: type,
-            ref: ref,
-            payload: msg
-          }])
-        }
+  let pushHandlers = (push, channel, type, ref, onHandlers) => {
+    if (onHandlers.onOk) {
+      push.receive("ok", (msg) => {
+        log("push ok", {
+          topic: channel.topic,
+          type: type,
+          ref: ref
+        })
+        app.ports.channelEvent.send(["pushOk", channel.topic, {
+          type: type,
+          ref: ref,
+          payload: msg
+        }])
       })
-      .receive("error", (reasons) => {
+    }
+    if (onHandlers.onError) {
+      push.receive("error", (reasons) => {
         log("push failed", reasons)
         app.ports.channelEvent.send(["pushError", channel.topic, {
           type: type,
@@ -35,9 +33,10 @@ export function init(app) {
           payload: reasons
         }])
       })
-      .receive("timeout", () => {
-        log("push timeout")
-      })
+    }
+    push.receive("timeout", () => {
+      log("push timeout")
+    })
   }
 
   app.ports.connectSocket.subscribe(data => {
@@ -54,70 +53,33 @@ export function init(app) {
     log("Socket connected: ", socket)
   })
 
+  // Join channels
   app.ports.joinChannels.subscribe(channelSpecs => {
 
     let channels =
       channelSpecs.map(data => {
         log("joinChannel: ", {
           topic: data.topic,
-          payload: data.payload
+          payload: data.payload,
+          onHandlers: data.onHandlers
         })
 
         let channel = socket.channel(data.topic, data.payload)
 
         channel.onMessage = (e, payload, ref) => {
-          app.ports.channelEvent.send(["message", channel.topic, {
-            event: e,
-            payload: payload
-          }])
+          app.ports.channelMessage.send([channel.topic, e, payload])
           return payload
         }
 
-        // let push = channel.join()
-        // pushHandlers(push, channel, "join")
+        let push = channel.join()
+        pushHandlers(push, channel, "join", null, data.onHandlers)
 
         return channel
       })
     app.ports.channelsCreated.send(channels.map(channel => [channel.topic, channel]));
 
-    channels.map( channel => {
-      let push = channel.join()
-      pushHandlers(push, channel, "join")
-    })
-
   });
 
-  // // Join Channel
-  // app.ports.joinChannel.subscribe(data => {
-  //
-  //   log("joinChannel: ", {
-  //     topic: data.topic,
-  //     payload: data.payload
-  //   })
-  //
-  //   let channel = socket.channel(data.topic, data.payload)
-  //
-  //   channel.onMessage = (e, payload, ref) => {
-  //     app.ports.channelEvent.send(["message", channel.topic, {
-  //       event: e,
-  //       payload: payload
-  //     }])
-  //     return payload
-  //   }
-  //
-  //   app.ports.channelEvent.send(["created", channel.topic, {
-  //     channel: channel
-  //   }])
-  //
-  //   if (data.topic.startsWith("xbs:")) {
-  //     console.log("Skipping join ", data.topic)
-  //   } else {
-  //
-  //
-  //     let push = channel.join()
-  //     pushHandlers(push, channel, "join")
-  //   }
-  // });
 
   // Leave channel
   app.ports.leaveChannel.subscribe(channel => {
@@ -126,7 +88,11 @@ export function init(app) {
     })
 
     let push = channel.leave()
-    pushHandlers(push, channel, "leave")
+    pushHandlers(push, channel, "leave", null, {
+      onOk: false,
+      onError: false,
+      onTimeout: false
+    })
   })
 
   // Push
@@ -135,11 +101,12 @@ export function init(app) {
       topic: data.channel.topic,
       event: data.event,
       payload: data.payload,
-      ref: data.ref
+      ref: data.ref,
+      onHandlers: data.onHandlers
     })
 
     let channel = data.channel
     let push = channel.push(data.event, data.payload, 10000)
-    pushHandlers(push, channel, "msg", data.ref)
+    pushHandlers(push, channel, "msg", data.ref, data.onHandlers)
   })
 }

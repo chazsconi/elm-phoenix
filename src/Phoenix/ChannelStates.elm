@@ -35,8 +35,8 @@ getJoinedChannelObj topic (ChannelStates channelStates) =
                     Creating ->
                         Nothing
 
-                    PendingJoin _ ->
-                        Nothing
+                    PendingJoin channelObj ->
+                        Just channelObj
 
                     Joined channelObj ->
                         Just channelObj
@@ -61,17 +61,17 @@ setJoined topic_ (ChannelStates channelStates) =
                         Just (Joined obj)
 
                     Just (Joined obj) ->
-                        let
-                            _ =
-                                Debug.log "setJoined for already joined channel: " topic_
-                        in
+                        -- let
+                        --     _ =
+                        --         Debug.log "setJoined for already joined channel: " topic_
+                        -- in
                         Just (Joined obj)
 
                     Just Creating ->
-                        let
-                            _ =
-                                Debug.log "setJoined for creating channel: " topic_
-                        in
+                        -- let
+                        --     _ =
+                        --         Debug.log "setJoined for creating channel: " topic_
+                        -- in
                         Just Creating
             )
             channelStates

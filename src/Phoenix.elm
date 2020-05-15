@@ -43,8 +43,8 @@ push endpoint parentMsg p =
 
 {-| Update the model
 -}
-update : Socket msg -> List (Channel msg) -> Msg msg -> Model msg -> ( Model msg, Cmd msg, Maybe msg )
-update socket channels msg model =
+update : Socket msg -> (() -> List (Channel msg)) -> Msg msg -> Model msg -> ( Model msg, Cmd msg, Maybe msg )
+update socket channelsFn msg model =
     let
         _ =
             if socket.debug then
@@ -70,13 +70,21 @@ update socket channels msg model =
                 Connected ->
                     let
                         ( updatedChannelStates, newChannels, removedChannelObjs ) =
-                            ChannelStates.update channels model.channelStates
+                            ChannelStates.update (channelsFn ()) model.channelStates
 
                         newChannelsCmd =
-                            Ports.joinChannels <| List.map (\c -> { topic = c.topic, payload = Maybe.withDefault JE.null c.payload }) newChannels
-
-                        _ =
-                            Debug.log "To join count" (List.length newChannels)
+                            if newChannels == [] then
+                                Cmd.none
+                            else
+                                Ports.joinChannels <|
+                                    List.map
+                                        (\c ->
+                                            { topic = c.topic
+                                            , payload = Maybe.withDefault JE.null c.payload
+                                            , onHandlers = { onOk = c.onJoin /= Nothing, onError = c.onJoinError /= Nothing, onTimeout = False }
+                                            }
+                                        )
+                                        newChannels
 
                         cmds =
                             [ newChannelsCmd ]
@@ -87,10 +95,10 @@ update socket channels msg model =
         SendPush p ->
             case ChannelStates.getJoinedChannelObj p.topic model.channelStates of
                 Nothing ->
-                    let
-                        _ =
-                            Debug.log "Push on unjoined channel - ignoring: " p.topic
-                    in
+                    -- let
+                    --     _ =
+                    --         Debug.log "Push on unjoined channel - ignoring: " p.topic
+                    -- in
                     ( model, Cmd.none, Nothing )
 
                 Just channelObj ->
@@ -98,7 +106,17 @@ update socket channels msg model =
                         | pushes = Dict.insert model.pushRef p model.pushes
                         , pushRef = model.pushRef + 1
                       }
-                    , Ports.pushChannel { ref = model.pushRef, channel = channelObj, event = p.event, payload = p.payload }
+                    , Ports.pushChannel
+                        { ref = model.pushRef
+                        , channel = channelObj
+                        , event = p.event
+                        , payload = p.payload
+                        , onHandlers =
+                            { onOk = p.onOk /= Nothing
+                            , onError = p.onError /= Nothing
+                            , onTimeout = True
+                            }
+                        }
                     , Nothing
                     )
 
@@ -143,7 +161,7 @@ update socket channels msg model =
                 updatedModel =
                     { model | channelStates = ChannelStates.setJoined topic model.channelStates }
             in
-            case List.filter (\c -> c.topic == topic) channels of
+            case List.filter (\c -> c.topic == topic) (channelsFn ()) of
                 [ channel ] ->
                     case channel.onJoin of
                         Nothing ->
@@ -153,14 +171,14 @@ update socket channels msg model =
                             ( updatedModel, Cmd.none, Just (onJoinMsg payload) )
 
                 _ ->
-                    let
-                        _ =
-                            Debug.log "ChannelJoinOk for channel no longer subscribed to: " topic
-                    in
+                    -- let
+                    --     _ =
+                    --         Debug.log "ChannelJoinOk for channel no longer subscribed to: " topic
+                    -- in
                     ( updatedModel, Cmd.none, Nothing )
 
         ChannelJoinError topic payload ->
-            case List.filter (\c -> c.topic == topic) channels of
+            case List.filter (\c -> c.topic == topic) (channelsFn ()) of
                 [ channel ] ->
                     case channel.onJoinError of
                         Nothing ->
@@ -173,7 +191,7 @@ update socket channels msg model =
                     ( model, Cmd.none, Nothing )
 
         ChannelLeaveOk topic payload ->
-            case List.filter (\c -> c.topic == topic) channels of
+            case List.filter (\c -> c.topic == topic) (channelsFn ()) of
                 [ channel ] ->
                     case channel.onLeave of
                         Nothing ->
@@ -186,7 +204,7 @@ update socket channels msg model =
                     ( model, Cmd.none, Nothing )
 
         ChannelLeaveError topic payload ->
-            case List.filter (\c -> c.topic == topic) channels of
+            case List.filter (\c -> c.topic == topic) (channelsFn ()) of
                 [ channel ] ->
                     case channel.onLeaveError of
                         Nothing ->
@@ -199,7 +217,7 @@ update socket channels msg model =
                     ( model, Cmd.none, Nothing )
 
         ChannelMessage topic event payload ->
-            case List.filter (\c -> c.topic == topic) channels of
+            case List.filter (\c -> c.topic == topic) (channelsFn ()) of
                 [ channel ] ->
                     case Dict.get event channel.on of
                         Nothing ->
@@ -227,6 +245,7 @@ connect socket parentMsg channels =
         Sub.batch
             [ Ports.channelEvent parseChannelEvent
             , Ports.channelsCreated ChannelsCreated
+            , Ports.channelMessage (\( topic, event, payload ) -> ChannelMessage topic event payload)
             , Time.every tickInterval Tick
             ]
 
@@ -234,6 +253,9 @@ connect socket parentMsg channels =
 parseChannelEvent : Ports.ChannelEvent -> Msg msg
 parseChannelEvent ( eventName, topic, data ) =
     let
+        -- _ =
+        --     Debug.log "parseChannelEvent" eventName
+        --
         decoder =
             case eventName of
                 "message" ->
@@ -310,10 +332,10 @@ parseChannelEvent ( eventName, topic, data ) =
             msg
 
         Err err ->
-            let
-                _ =
-                    Debug.log "ChannelEvent parsing error : " ( eventName, topic, err )
-            in
+            -- let
+            --     _ =
+            --         Debug.log "ChannelEvent parsing error : " ( eventName, topic, err )
+            -- in
             NoOp
 
 
