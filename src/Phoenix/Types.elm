@@ -36,9 +36,13 @@ type SocketState
     | Connected
 
 
-type alias Model msg =
+type alias Model msg channelsModel =
     { socketState : SocketState
-    , channelStates : ChannelStates
+    , channelStates : ChannelStates msg
     , pushRef : PushRef
     , pushes : Dict PushRef (Push msg)
+
+    -- This is stored as calculating the channels can be expensive
+    -- so we only want to do it if the model has changed
+    , previousChannelsModel : Maybe channelsModel
     }

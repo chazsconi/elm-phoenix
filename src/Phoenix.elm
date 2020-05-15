@@ -28,9 +28,9 @@ import Time
 
 {-| Initialise the model
 -}
-new : Model msg
+new : Model msg channelsModel
 new =
-    { socketState = Disconnected, channelStates = ChannelStates.new, pushRef = 0, pushes = Dict.empty }
+    { socketState = Disconnected, channelStates = ChannelStates.new, pushRef = 0, pushes = Dict.empty, previousChannelsModel = Nothing }
 
 
 {-| Push an event to a channel
@@ -43,8 +43,8 @@ push endpoint parentMsg p =
 
 {-| Update the model
 -}
-update : Socket msg -> (() -> List (Channel msg)) -> Msg msg -> Model msg -> ( Model msg, Cmd msg, Maybe msg )
-update socket channelsFn msg model =
+update : Socket msg -> (channelsModel -> List (Channel msg)) -> channelsModel -> Msg msg -> Model msg channelsModel -> ( Model msg channelsModel, Cmd msg, Maybe msg )
+update socket channelsFn channelsModel msg model =
     let
         _ =
             if socket.debug then
@@ -68,29 +68,32 @@ update socket channelsFn msg model =
                     )
 
                 Connected ->
-                    let
-                        ( updatedChannelStates, newChannels, removedChannelObjs ) =
-                            ChannelStates.update (channelsFn ()) model.channelStates
+                    if Just channelsModel == model.previousChannelsModel then
+                        ( model, Cmd.none, Nothing )
+                    else
+                        let
+                            ( updatedChannelStates, newChannels, removedChannelObjs ) =
+                                ChannelStates.update (channelsFn channelsModel) model.channelStates
 
-                        newChannelsCmd =
-                            if newChannels == [] then
-                                Cmd.none
-                            else
-                                Ports.joinChannels <|
-                                    List.map
-                                        (\c ->
-                                            { topic = c.topic
-                                            , payload = Maybe.withDefault JE.null c.payload
-                                            , onHandlers = { onOk = c.onJoin /= Nothing, onError = c.onJoinError /= Nothing, onTimeout = False }
-                                            }
-                                        )
-                                        newChannels
+                            newChannelsCmd =
+                                if newChannels == [] then
+                                    Cmd.none
+                                else
+                                    Ports.joinChannels <|
+                                        List.map
+                                            (\c ->
+                                                { topic = c.topic
+                                                , payload = Maybe.withDefault JE.null c.payload
+                                                , onHandlers = { onOk = c.onJoin /= Nothing, onError = c.onJoinError /= Nothing, onTimeout = False }
+                                                }
+                                            )
+                                            newChannels
 
-                        cmds =
-                            [ newChannelsCmd ]
-                                ++ List.map Ports.leaveChannel removedChannelObjs
-                    in
-                    ( { model | channelStates = updatedChannelStates }, Cmd.batch cmds, Nothing )
+                            cmds =
+                                [ newChannelsCmd ]
+                                    ++ List.map Ports.leaveChannel removedChannelObjs
+                        in
+                        ( { model | previousChannelsModel = Just channelsModel, channelStates = updatedChannelStates }, Cmd.batch cmds, Nothing )
 
         SendPush p ->
             case ChannelStates.getJoinedChannelObj p.topic model.channelStates of
@@ -102,6 +105,7 @@ update socket channelsFn msg model =
                     ( model, Cmd.none, Nothing )
 
                 Just channelObj ->
+                    -- TOOD: Do not store if no onHandlers
                     ( { model
                         | pushes = Dict.insert model.pushRef p model.pushes
                         , pushRef = model.pushRef + 1
@@ -161,8 +165,8 @@ update socket channelsFn msg model =
                 updatedModel =
                     { model | channelStates = ChannelStates.setJoined topic model.channelStates }
             in
-            case List.filter (\c -> c.topic == topic) (channelsFn ()) of
-                [ channel ] ->
+            case ChannelStates.getChannel topic model.channelStates of
+                Just channel ->
                     case channel.onJoin of
                         Nothing ->
                             ( updatedModel, Cmd.none, Nothing )
@@ -170,7 +174,7 @@ update socket channelsFn msg model =
                         Just onJoinMsg ->
                             ( updatedModel, Cmd.none, Just (onJoinMsg payload) )
 
-                _ ->
+                Nothing ->
                     -- let
                     --     _ =
                     --         Debug.log "ChannelJoinOk for channel no longer subscribed to: " topic
@@ -178,8 +182,8 @@ update socket channelsFn msg model =
                     ( updatedModel, Cmd.none, Nothing )
 
         ChannelJoinError topic payload ->
-            case List.filter (\c -> c.topic == topic) (channelsFn ()) of
-                [ channel ] ->
+            case ChannelStates.getChannel topic model.channelStates of
+                Just channel ->
                     case channel.onJoinError of
                         Nothing ->
                             ( model, Cmd.none, Nothing )
@@ -187,12 +191,12 @@ update socket channelsFn msg model =
                         Just onJoinError ->
                             ( model, Cmd.none, Just (onJoinError payload) )
 
-                _ ->
+                Nothing ->
                     ( model, Cmd.none, Nothing )
 
         ChannelLeaveOk topic payload ->
-            case List.filter (\c -> c.topic == topic) (channelsFn ()) of
-                [ channel ] ->
+            case ChannelStates.getChannel topic model.channelStates of
+                Just channel ->
                     case channel.onLeave of
                         Nothing ->
                             ( model, Cmd.none, Nothing )
@@ -200,12 +204,12 @@ update socket channelsFn msg model =
                         Just onLeaveMsg ->
                             ( model, Cmd.none, Just (onLeaveMsg payload) )
 
-                _ ->
+                Nothing ->
                     ( model, Cmd.none, Nothing )
 
         ChannelLeaveError topic payload ->
-            case List.filter (\c -> c.topic == topic) (channelsFn ()) of
-                [ channel ] ->
+            case ChannelStates.getChannel topic model.channelStates of
+                Just channel ->
                     case channel.onLeaveError of
                         Nothing ->
                             ( model, Cmd.none, Nothing )
@@ -213,12 +217,12 @@ update socket channelsFn msg model =
                         Just onLeaveError ->
                             ( model, Cmd.none, Just (onLeaveError payload) )
 
-                _ ->
+                Nothing ->
                     ( model, Cmd.none, Nothing )
 
         ChannelMessage topic event payload ->
-            case List.filter (\c -> c.topic == topic) (channelsFn ()) of
-                [ channel ] ->
+            case ChannelStates.getChannel topic model.channelStates of
+                Just channel ->
                     case Dict.get event channel.on of
                         Nothing ->
                             ( model, Cmd.none, Nothing )
@@ -226,20 +230,20 @@ update socket channelsFn msg model =
                         Just onMsg ->
                             ( model, Cmd.none, Just (onMsg payload) )
 
-                _ ->
+                Nothing ->
                     ( model, Cmd.none, Nothing )
 
 
 {-| Connect the socket
 -}
-connect : Socket msg -> (Msg msg -> msg) -> List (Channel msg) -> Sub msg
-connect socket parentMsg channels =
+connect : Socket msg -> (Msg msg -> msg) -> Sub msg
+connect socket parentMsg =
     let
         tickInterval =
             if socket.debug then
                 1000
             else
-                500
+                100
     in
     Sub.map parentMsg <|
         Sub.batch

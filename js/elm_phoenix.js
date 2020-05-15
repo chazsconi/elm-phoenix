@@ -6,7 +6,7 @@ export function init(app) {
   let socket = null;
 
   let log = (msg, data) => {
-    console.log(msg, data)
+    //console.log(msg, data)
   }
 
   let pushHandlers = (push, channel, type, ref, onHandlers) => {
