@@ -13,10 +13,10 @@ import Dict
 import Json.Decode as JD
 import Json.Encode as JE
 import Phoenix.Channel exposing (Channel, Topic)
-import Phoenix.ChannelStates as ChannelStates
+import Phoenix.ChannelStates as ChannelStates exposing (ChannelObj)
 import Phoenix.PortsAPI as PortsAPI exposing (Ports)
 import Phoenix.Push exposing (Push)
-import Phoenix.Pushes as Pushes
+import Phoenix.Pushes as Pushes exposing (PushRef)
 import Phoenix.Socket exposing (Socket)
 import Phoenix.Types exposing (..)
 import Task
@@ -105,9 +105,9 @@ update ports socket channelsFn channelsModel msg model =
                 Nothing ->
                     let
                         _ =
-                            Debug.log "Push on unjoined channel - ignoring: " p.topic
+                            Debug.log "Push on unjoined channel - queueing: " p.topic
                     in
-                    ( model, Cmd.none, Nothing )
+                    ( { model | pushes = Pushes.queue p model.pushes }, Cmd.none, Nothing )
 
                 Just channelObj ->
                     -- TOOD: Do not store if no onHandlers
@@ -116,17 +116,7 @@ update ports socket channelsFn channelsModel msg model =
                             Pushes.insert p model.pushes
                     in
                     ( { model | pushes = updatedPushes }
-                    , ports.pushChannel
-                        { ref = pushRef
-                        , channel = channelObj
-                        , event = p.event
-                        , payload = p.payload
-                        , onHandlers =
-                            { onOk = p.onOk /= Nothing
-                            , onError = p.onError /= Nothing
-                            , onTimeout = True
-                            }
-                        }
+                    , pushChannel ports pushRef channelObj p
                     , Nothing
                     )
 
@@ -146,23 +136,43 @@ update ports socket channelsFn channelsModel msg model =
                 Just ( p, updatedPushes ) ->
                     ( { model | pushes = updatedPushes }, Cmd.none, Maybe.map (\c -> c payload) p.onError )
 
-        ChannelCreated topic channelObj ->
-            ( { model | channelStates = ChannelStates.setCreated topic channelObj model.channelStates }
-            , Cmd.none
-            , Nothing
-            )
-
         ChannelsCreated channelsCreated ->
-            ( { model
-                | channelStates =
+            let
+                updatedChannelStates =
                     List.foldl
                         (\( topic, channelObj ) acc ->
                             ChannelStates.setCreated topic channelObj acc
                         )
                         model.channelStates
                         channelsCreated
+
+                topics =
+                    List.map (\( topic, _ ) -> topic) channelsCreated
+
+                -- Need to send the pushes that have been queued
+                ( queuedPushList, updatedPushes ) =
+                    Pushes.insertQueuedByTopics topics model.pushes
+
+                queuedPushcmds =
+                    List.foldl
+                        (\( pushRef, p ) acc ->
+                            case ChannelStates.getJoinedChannelObj p.topic updatedChannelStates of
+                                -- Should not happen
+                                Nothing ->
+                                    acc
+
+                                Just channelObj ->
+                                    pushChannel ports pushRef channelObj p
+                                        :: acc
+                        )
+                        []
+                        queuedPushList
+            in
+            ( { model
+                | channelStates = updatedChannelStates
+                , pushes = updatedPushes
               }
-            , Cmd.none
+            , Cmd.batch queuedPushcmds
             , Nothing
             )
 
@@ -261,6 +271,21 @@ connect ports socket parentMsg =
             ]
 
 
+pushChannel : Ports msg -> PushRef -> ChannelObj -> Push msg -> Cmd msg
+pushChannel ports pushRef channelObj p =
+    ports.pushChannel
+        { ref = pushRef
+        , channel = channelObj
+        , event = p.event
+        , payload = p.payload
+        , onHandlers =
+            { onOk = p.onOk /= Nothing
+            , onError = p.onError /= Nothing
+            , onTimeout = True
+            }
+        }
+
+
 parsePushReply : PortsAPI.PushReply -> Msg msg
 parsePushReply { topic, eventName, pushType, ref, payload } =
     case eventName of
@@ -312,9 +337,6 @@ mapMsg func msg =
 
         Tick time ->
             Tick time
-
-        ChannelCreated a b ->
-            ChannelCreated a b
 
         ChannelsCreated v ->
             ChannelsCreated v

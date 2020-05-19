@@ -17,7 +17,6 @@ type Msg msg
     = NoOp
     | Tick Time.Posix
     | SendPush (Push msg)
-    | ChannelCreated Topic JD.Value
     | ChannelsCreated (List ( Topic, JD.Value ))
     | ChannelJoinOk Topic JD.Value
     | ChannelJoinError Topic JD.Value
