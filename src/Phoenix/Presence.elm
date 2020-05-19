@@ -1,4 +1,12 @@
-module Phoenix.Presence exposing (Presence, create, map, onChange, onJoins, onLeaves)
+module Phoenix.Presence exposing
+    ( Presence
+    , map
+    -- TODO: Implement presence
+    -- , create
+    -- , onChange
+    -- , onJoins
+    -- , onLeaves
+    )
 
 {-| Presence is an extension for channels to support the Presence feature of Phoenix.
 
@@ -16,6 +24,7 @@ module Phoenix.Presence exposing (Presence, create, map, onChange, onJoins, onLe
 
 import Dict exposing (Dict)
 import Json.Decode as JD exposing (Decoder, Value)
+
 
 
 -- Presence

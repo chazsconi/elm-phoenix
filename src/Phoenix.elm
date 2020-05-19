@@ -1,4 +1,4 @@
-module Phoenix exposing (connect, mapMsg, new, push, update)
+module Phoenix exposing (connect, new, push, update, mapMsg)
 
 {-| Entrypoint for Phoenix
 
@@ -20,6 +20,7 @@ import Phoenix.Socket exposing (Socket)
 import Phoenix.Types exposing (..)
 import Task
 import Time
+
 
 
 -- Based on: https://sascha.timme.xyz/elm-phoenix/
@@ -49,6 +50,7 @@ update socket channelsFn channelsModel msg model =
         _ =
             if socket.debug then
                 Debug.log "msg model" ( msg, model )
+
             else
                 ( msg, model )
     in
@@ -70,6 +72,7 @@ update socket channelsFn channelsModel msg model =
                 Connected ->
                     if Just channelsModel == model.previousChannelsModel then
                         ( model, Cmd.none, Nothing )
+
                     else
                         let
                             ( updatedChannelStates, newChannels, removedChannelObjs ) =
@@ -78,6 +81,7 @@ update socket channelsFn channelsModel msg model =
                             newChannelsCmd =
                                 if newChannels == [] then
                                     Cmd.none
+
                                 else
                                     Ports.joinChannels <|
                                         List.map
@@ -98,10 +102,10 @@ update socket channelsFn channelsModel msg model =
         SendPush p ->
             case ChannelStates.getJoinedChannelObj p.topic model.channelStates of
                 Nothing ->
-                    -- let
-                    --     _ =
-                    --         Debug.log "Push on unjoined channel - ignoring: " p.topic
-                    -- in
+                    let
+                        _ =
+                            Debug.log "Push on unjoined channel - ignoring: " p.topic
+                    in
                     ( model, Cmd.none, Nothing )
 
                 Just channelObj ->
@@ -242,104 +246,54 @@ connect socket parentMsg =
         tickInterval =
             if socket.debug then
                 1000
+
             else
                 100
     in
     Sub.map parentMsg <|
         Sub.batch
-            [ Ports.channelEvent parseChannelEvent
-            , Ports.channelsCreated ChannelsCreated
+            [ Ports.channelsCreated ChannelsCreated
             , Ports.channelMessage (\( topic, event, payload ) -> ChannelMessage topic event payload)
+            , Ports.pushReply parsePushReply
             , Time.every tickInterval Tick
             ]
 
 
-parseChannelEvent : Ports.ChannelEvent -> Msg msg
-parseChannelEvent ( eventName, topic, data ) =
-    let
-        -- _ =
-        --     Debug.log "parseChannelEvent" eventName
-        --
-        decoder =
-            case eventName of
-                "message" ->
-                    JD.map2
-                        (ChannelMessage topic)
-                        (JD.field "event" JD.string)
-                        (JD.field "payload" JD.value)
+parsePushReply : Ports.PushReply -> Msg msg
+parsePushReply { topic, eventName, pushType, ref, payload } =
+    case eventName of
+        "ok" ->
+            case ( pushType, ref ) of
+                ( "join", _ ) ->
+                    ChannelJoinOk topic payload
 
-                "created" ->
-                    JD.map
-                        (ChannelCreated topic)
-                        (JD.field "channel" JD.value)
+                ( "leave", _ ) ->
+                    ChannelLeaveOk topic payload
 
-                "joinOk" ->
-                    JD.map
-                        (ChannelJoinOk topic)
-                        (JD.field "payload" JD.value)
-
-                "pushOk" ->
-                    JD.field "type" JD.string
-                        |> JD.andThen
-                            (\pushType ->
-                                case pushType of
-                                    "join" ->
-                                        JD.map
-                                            (ChannelJoinOk topic)
-                                            (JD.field "payload" JD.value)
-
-                                    "leave" ->
-                                        JD.map
-                                            (ChannelLeaveOk topic)
-                                            (JD.field "payload" JD.value)
-
-                                    "msg" ->
-                                        JD.map2
-                                            (ChannelPushOk topic)
-                                            (JD.field "ref" JD.int)
-                                            (JD.field "payload" JD.value)
-
-                                    _ ->
-                                        JD.fail "Unnown push type"
-                            )
-
-                "pushError" ->
-                    JD.field "type" JD.string
-                        |> JD.andThen
-                            (\pushType ->
-                                case pushType of
-                                    "join" ->
-                                        JD.map
-                                            (ChannelJoinError topic)
-                                            (JD.field "payload" JD.value)
-
-                                    "leave" ->
-                                        JD.map
-                                            (ChannelLeaveError topic)
-                                            (JD.field "payload" JD.value)
-
-                                    "msg" ->
-                                        JD.map2
-                                            (ChannelPushError topic)
-                                            (JD.field "ref" JD.int)
-                                            (JD.field "payload" JD.value)
-
-                                    _ ->
-                                        JD.fail "Unnown push type"
-                            )
+                ( "msg", Just r ) ->
+                    ChannelPushOk topic r payload
 
                 _ ->
-                    JD.fail "Unknown event"
-    in
-    case JD.decodeValue decoder data of
-        Ok msg ->
-            msg
+                    -- Unknown push type
+                    NoOp
 
-        Err err ->
-            -- let
-            --     _ =
-            --         Debug.log "ChannelEvent parsing error : " ( eventName, topic, err )
-            -- in
+        "error" ->
+            case ( pushType, ref ) of
+                ( "join", _ ) ->
+                    ChannelJoinError topic payload
+
+                ( "leave", _ ) ->
+                    ChannelLeaveError topic payload
+
+                ( "msg", Just r ) ->
+                    ChannelPushError topic r payload
+
+                _ ->
+                    -- Unknown push type
+                    NoOp
+
+        _ ->
+            -- Unknown event type
             NoOp
 
 

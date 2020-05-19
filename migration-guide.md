@@ -24,3 +24,25 @@ to
   in
   Phoenix.push socket myPush
 ```
+
+## Not yet implemented
+
+```
+Channel.onDisconnect
+Channel.onLeave
+Channel.onLeaveError
+Channel.onRejoin
+Channel.onRequestJoin
+
+Socket.heartbeatIntervallSeconds (with typo)
+Socket.onAbnormalClose
+Socket.onClose
+Socket.onNormalClose
+Socket.onOpen
+Socket.reconnectTimer
+Socket.withoutHeartbeat
+```
+These functions still exist in the code but are not exposed as they have no effect
+so if you try to use them you will get compilation errors
+
+Additionally `Presence` is not implemented

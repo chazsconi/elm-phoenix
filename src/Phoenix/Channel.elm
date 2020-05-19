@@ -1,22 +1,14 @@
-module Phoenix.Channel
-    exposing
-        ( Channel
-        , Topic
-        , init
-        , map
-        , on
-        , onDisconnect
-        , onError
-        , onJoin
-        , onJoinError
-        , onLeave
-        , onLeaveError
-        , onRejoin
-        , onRequestJoin
-        , withDebug
-        , withPayload
-        , withPresence
-        )
+module Phoenix.Channel exposing
+    ( Channel
+    , init, withPayload, on, onJoin, onJoinError, onError, withDebug, map, Topic
+    , withPresence
+    -- TODO: Implement these
+    -- , onDisconnect
+    -- , onLeave
+    -- , onLeaveError
+    -- , onRejoin
+    -- , onRequestJoin
+    )
 
 {-| A channel declares which topic should be joined, registers event handlers and has various callbacks for possible lifecycle events.
 
@@ -36,6 +28,7 @@ module Phoenix.Channel
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Value)
 import Phoenix.Presence as Presence exposing (Presence)
+
 
 
 -- CHANNEL
@@ -161,7 +154,7 @@ onJoin onJoin_ chan =
     init "room:lobby"
         |> onJoinError CouldNotJoin
 
-**Note**: If a channel declined a request to join a topic the effect manager won_t try again.
+**Note**: If a channel declined a request to join a topic the effect manager won\_t try again.
 
 -}
 onJoinError : (Value -> msg) -> Channel msg -> Channel msg
@@ -228,14 +221,14 @@ onLeave onLeave_ chan =
 
 
 {-| Set a callback which will be called if the server declined your request to left a channel.
-_(It seems that Phoenix v1.2 doesn_t send this)_
+_(It seems that Phoenix v1.2 doesn_t send this)\_
 -}
 onLeaveError : (Value -> msg) -> Channel msg -> Channel msg
 onLeaveError onLeaveError_ chan =
     { chan | onLeaveError = Just onLeaveError_ }
 
 
-{-| Set a callback which will be called when there is a change in the presence state caused by "presence_state" and "presence_diff" events.
+{-| Set a callback which will be called when there is a change in the presence state caused by "presence\_state" and "presence\_diff" events.
 
     type Msg =
         PresenceChange (Dict String (List Json.Encode.Value)) | ...

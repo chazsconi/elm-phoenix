@@ -1,19 +1,15 @@
-module Phoenix.Socket
-    exposing
-        ( AbnormalClose
-        , Socket
-        , heartbeatIntervallSeconds
-        , init
-        , map
-        , onAbnormalClose
-        , onClose
-        , onNormalClose
-        , onOpen
-        , reconnectTimer
-        , withDebug
-        , withParams
-        , withoutHeartbeat
-        )
+module Phoenix.Socket exposing
+    ( Socket, AbnormalClose
+    , init, withParams, withDebug, map
+    -- TODO: Implement these
+    -- , heartbeatIntervallSeconds
+    -- , onAbnormalClose
+    -- , onClose
+    -- , onNormalClose
+    -- , onOpen
+    -- , reconnectTimer
+    -- , withoutHeartbeat
+    )
 
 {-| A socket declares to which endpoint a socket connection should be established.
 
@@ -85,7 +81,7 @@ init endpoint =
 {-| Attach parameters to the socket connecton. You can use this to do authentication on the socket level. This will be the first argument (as a map) in your `connect/2` callback on the server.
 
     init "ws://localhost:4000/socket/websocket"
-        |> withParams [("token", "GYMXZwXzKFzfxyGntVkYt7uAJnscVnFJ")]
+        |> withParams [ ( "token", "GYMXZwXzKFzfxyGntVkYt7uAJnscVnFJ" ) ]
 
 -}
 withParams : List ( String, String ) -> Socket msg -> Socket msg
@@ -93,7 +89,7 @@ withParams params socket =
     { socket | params = params }
 
 
-{-| The client regularly sends a heartbeat to the server. With this function you can specify the intervall in which the heartbeats are send. By default it_s 30 seconds.
+{-| The client regularly sends a heartbeat to the server. With this function you can specify the intervall in which the heartbeats are send. By default it\_s 30 seconds.
 
     init "ws://localhost:4000/socket/websocket"
         |> heartbeatIntervallSeconds 60
@@ -120,6 +116,7 @@ withoutHeartbeat socket =
     defaultReconnectTimer failedAttempts =
         if backoff < 1 then
             0
+
         else
             toFloat (10 * 2 ^ failedAttempts)
 
@@ -178,6 +175,7 @@ defaultReconnectTimer : Int -> Time
 defaultReconnectTimer failedAttempts =
     if failedAttempts < 1 then
         0
+
     else
         toFloat (min 15000 (1000 * failedAttempts))
 

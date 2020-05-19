@@ -10,31 +10,24 @@ type alias ChannelMsg =
     ( Topic, Event, JE.Value )
 
 
-type alias ChannelEvent =
-    ( String, Topic, JE.Value )
-
-
 type alias OnHandlers =
     { onOk : Bool, onError : Bool, onTimeout : Bool }
 
 
-port channelMsg : (ChannelMsg -> msg) -> Sub msg
-
-
-port channelEvent : (ChannelEvent -> msg) -> Sub msg
+type alias PushReply =
+    { eventName : String, topic : Topic, pushType : String, ref : Maybe Int, payload : JE.Value }
 
 
 port channelMessage : (( Topic, String, JE.Value ) -> msg) -> Sub msg
 
 
-port channelsCreated : (List ( Topic, JE.Value ) -> msg) -> Sub msg
+port pushReply : (PushReply -> msg) -> Sub msg
+
+
+port channelsCreated : (List ( Topic, ChannelObj ) -> msg) -> Sub msg
 
 
 port connectSocket : { endpoint : String, params : JE.Value } -> Cmd msg
-
-
-
--- port joinChannel : { topic : Topic, payload : JE.Value } -> Cmd msg
 
 
 port joinChannels : List { topic : Topic, payload : JE.Value, onHandlers : OnHandlers } -> Cmd msg

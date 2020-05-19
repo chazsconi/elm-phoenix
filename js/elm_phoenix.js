@@ -17,21 +17,25 @@ export function init(app) {
           type: type,
           ref: ref
         })
-        app.ports.channelEvent.send(["pushOk", channel.topic, {
-          type: type,
+        app.ports.pushReply.send({
+          eventName: "ok",
+          topic: channel.topic,
+          pushType: type,
           ref: ref,
           payload: msg
-        }])
+        })
       })
     }
     if (onHandlers.onError) {
       push.receive("error", (reasons) => {
         log("push failed", reasons)
-        app.ports.channelEvent.send(["pushError", channel.topic, {
-          type: type,
+        app.ports.pushReply.send({
+          eventName: "error",
+          topic: channel.topic,
+          pushType: type,
           ref: ref,
           payload: reasons
-        }])
+        })
       })
     }
     push.receive("timeout", () => {
