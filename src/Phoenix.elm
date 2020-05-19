@@ -16,6 +16,7 @@ import Phoenix.Channel exposing (Channel, Topic)
 import Phoenix.ChannelStates as ChannelStates
 import Phoenix.PortsAPI as PortsAPI exposing (Ports)
 import Phoenix.Push exposing (Push)
+import Phoenix.Pushes as Pushes
 import Phoenix.Socket exposing (Socket)
 import Phoenix.Types exposing (..)
 import Task
@@ -31,7 +32,7 @@ import Time
 -}
 new : Model msg channelsModel
 new =
-    { socketState = Disconnected, channelStates = ChannelStates.new, pushRef = 0, pushes = Dict.empty, previousChannelsModel = Nothing }
+    { socketState = Disconnected, channelStates = ChannelStates.new, pushes = Pushes.new, previousChannelsModel = Nothing }
 
 
 {-| Push an event to a channel
@@ -110,12 +111,13 @@ update ports socket channelsFn channelsModel msg model =
 
                 Just channelObj ->
                     -- TOOD: Do not store if no onHandlers
-                    ( { model
-                        | pushes = Dict.insert model.pushRef p model.pushes
-                        , pushRef = model.pushRef + 1
-                      }
+                    let
+                        ( pushRef, updatedPushes ) =
+                            Pushes.insert p model.pushes
+                    in
+                    ( { model | pushes = updatedPushes }
                     , ports.pushChannel
-                        { ref = model.pushRef
+                        { ref = pushRef
                         , channel = channelObj
                         , event = p.event
                         , payload = p.payload
@@ -129,20 +131,20 @@ update ports socket channelsFn channelsModel msg model =
                     )
 
         ChannelPushOk topic pushRef payload ->
-            case Dict.get pushRef model.pushes of
+            case Pushes.pop pushRef model.pushes of
                 Nothing ->
                     ( model, Cmd.none, Nothing )
 
-                Just p ->
-                    ( { model | pushes = Dict.remove pushRef model.pushes }, Cmd.none, Maybe.map (\c -> c payload) p.onOk )
+                Just ( p, updatedPushes ) ->
+                    ( { model | pushes = updatedPushes }, Cmd.none, Maybe.map (\c -> c payload) p.onOk )
 
         ChannelPushError topic pushRef payload ->
-            case Dict.get pushRef model.pushes of
+            case Pushes.pop pushRef model.pushes of
                 Nothing ->
                     ( model, Cmd.none, Nothing )
 
-                Just p ->
-                    ( { model | pushes = Dict.remove pushRef model.pushes }, Cmd.none, Maybe.map (\c -> c payload) p.onError )
+                Just ( p, updatedPushes ) ->
+                    ( { model | pushes = updatedPushes }, Cmd.none, Maybe.map (\c -> c payload) p.onError )
 
         ChannelCreated topic channelObj ->
             ( { model | channelStates = ChannelStates.setCreated topic channelObj model.channelStates }
