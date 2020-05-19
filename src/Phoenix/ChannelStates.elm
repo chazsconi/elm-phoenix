@@ -115,6 +115,7 @@ newChannels channels channelStates =
         (\channel acc ->
             if member channel.topic channelStates then
                 acc
+
             else
                 channel :: acc
         )
@@ -128,6 +129,7 @@ removedTopics topics1 channelStates =
         (\topic internalChannel ( topicAcc, objAcc ) ->
             if List.member topic topics1 then
                 ( topicAcc, objAcc )
+
             else
                 case internalChannel.state of
                     -- Shouldn't happen

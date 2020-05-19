@@ -14,7 +14,7 @@ import Json.Decode as JD
 import Json.Encode as JE
 import Phoenix.Channel exposing (Channel, Topic)
 import Phoenix.ChannelStates as ChannelStates
-import Phoenix.Ports as Ports
+import Phoenix.PortsAPI as PortsAPI exposing (Ports)
 import Phoenix.Push exposing (Push)
 import Phoenix.Socket exposing (Socket)
 import Phoenix.Types exposing (..)
@@ -44,8 +44,8 @@ push endpoint parentMsg p =
 
 {-| Update the model
 -}
-update : Socket msg -> (channelsModel -> List (Channel msg)) -> channelsModel -> Msg msg -> Model msg channelsModel -> ( Model msg channelsModel, Cmd msg, Maybe msg )
-update socket channelsFn channelsModel msg model =
+update : Ports msg -> Socket msg -> (channelsModel -> List (Channel msg)) -> channelsModel -> Msg msg -> Model msg channelsModel -> ( Model msg channelsModel, Cmd msg, Maybe msg )
+update ports socket channelsFn channelsModel msg model =
     let
         _ =
             if socket.debug then
@@ -62,7 +62,7 @@ update socket channelsFn channelsModel msg model =
             case model.socketState of
                 Disconnected ->
                     ( { model | socketState = Connected }
-                    , Ports.connectSocket
+                    , ports.connectSocket
                         { endpoint = socket.endpoint
                         , params = JE.dict identity JE.string (Dict.fromList socket.params)
                         }
@@ -83,7 +83,7 @@ update socket channelsFn channelsModel msg model =
                                     Cmd.none
 
                                 else
-                                    Ports.joinChannels <|
+                                    ports.joinChannels <|
                                         List.map
                                             (\c ->
                                                 { topic = c.topic
@@ -95,7 +95,7 @@ update socket channelsFn channelsModel msg model =
 
                             cmds =
                                 [ newChannelsCmd ]
-                                    ++ List.map Ports.leaveChannel removedChannelObjs
+                                    ++ List.map ports.leaveChannel removedChannelObjs
                         in
                         ( { model | previousChannelsModel = Just channelsModel, channelStates = updatedChannelStates }, Cmd.batch cmds, Nothing )
 
@@ -114,7 +114,7 @@ update socket channelsFn channelsModel msg model =
                         | pushes = Dict.insert model.pushRef p model.pushes
                         , pushRef = model.pushRef + 1
                       }
-                    , Ports.pushChannel
+                    , ports.pushChannel
                         { ref = model.pushRef
                         , channel = channelObj
                         , event = p.event
@@ -240,8 +240,8 @@ update socket channelsFn channelsModel msg model =
 
 {-| Connect the socket
 -}
-connect : Socket msg -> (Msg msg -> msg) -> Sub msg
-connect socket parentMsg =
+connect : Ports (Msg msg) -> Socket msg -> (Msg msg -> msg) -> Sub msg
+connect ports socket parentMsg =
     let
         tickInterval =
             if socket.debug then
@@ -252,14 +252,14 @@ connect socket parentMsg =
     in
     Sub.map parentMsg <|
         Sub.batch
-            [ Ports.channelsCreated ChannelsCreated
-            , Ports.channelMessage (\( topic, event, payload ) -> ChannelMessage topic event payload)
-            , Ports.pushReply parsePushReply
+            [ ports.channelsCreated ChannelsCreated
+            , ports.channelMessage (\( topic, event, payload ) -> ChannelMessage topic event payload)
+            , ports.pushReply parsePushReply
             , Time.every tickInterval Tick
             ]
 
 
-parsePushReply : Ports.PushReply -> Msg msg
+parsePushReply : PortsAPI.PushReply -> Msg msg
 parsePushReply { topic, eventName, pushType, ref, payload } =
     case eventName of
         "ok" ->
