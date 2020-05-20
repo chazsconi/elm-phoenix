@@ -1,12 +1,20 @@
-module Phoenix.Push exposing (Push, init, map, onError, onOk, withPayload)
+module Phoenix.Push exposing
+    ( Push
+    , init, withPayload, onOk, onError, map
+    )
 
 {-| A message to push informations to a channel.
 
+
 # Definition
+
 @docs Push
 
+
 # Helpers
+
 @docs init, withPayload, onOk, onError, map
+
 -}
 
 import Json.Encode exposing (Value)
@@ -38,6 +46,7 @@ type alias Event =
 {-| Initialize a message with a topic and an event.
 
     init "room:lobby" "new_msg"
+
 -}
 init : Topic -> Event -> Push msg
 init topic event =
@@ -51,6 +60,7 @@ init topic event =
 
     init "room:lobby" "new_msg"
         |> withPayload
+
 -}
 withPayload : Value -> Push msg -> Push msg
 withPayload payload push =
@@ -67,6 +77,7 @@ withPayload payload push =
     init "room:lobby" "new_msg"
         |> withPayload
         |> onOk (\_ -> MessageArrived)
+
 -}
 onOk : (Value -> msg) -> Push msg -> Push msg
 onOk cb push =
@@ -83,6 +94,7 @@ onOk cb push =
     init "room:lobby" "new_msg"
         |> withPayload
         |> onError MessageFailed
+
 -}
 onError : (Value -> msg) -> Push msg -> Push msg
 onError cb push =
