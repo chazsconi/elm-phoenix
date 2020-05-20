@@ -41,6 +41,7 @@ type alias Ports msg =
     { channelMessage : (( Topic, String, JE.Value ) -> msg) -> Sub msg
     , pushReply : (PushReply -> msg) -> Sub msg
     , channelsCreated : (List ( Topic, ChannelObj ) -> msg) -> Sub msg
+    , channelError : (Topic -> msg) -> Sub msg
     , connectSocket : ConnectParams -> Cmd msg
     , joinChannels : List JoinParams -> Cmd msg
     , leaveChannel : ChannelObj -> Cmd msg

@@ -17,6 +17,7 @@ ports =
     { channelMessage = channelMessage
     , pushReply = pushReply
     , channelsCreated = channelsCreated
+    , channelError = channelError
     , connectSocket = connectSocket
     , joinChannels = joinChannels
     , leaveChannel = leaveChannel
@@ -31,6 +32,9 @@ port pushReply : (PushReply -> msg) -> Sub msg
 
 
 port channelsCreated : (List ( Topic, ChannelObj ) -> msg) -> Sub msg
+
+
+port channelError : (Topic -> msg) -> Sub msg
 
 
 port connectSocket : ConnectParams -> Cmd msg

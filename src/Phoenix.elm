@@ -249,6 +249,19 @@ update ports socket channelsFn channelsModel msg model =
                 Nothing ->
                     ( model, Cmd.none, Nothing )
 
+        ChannelError topic ->
+            case ChannelStates.getChannel topic model.channelStates of
+                Just channel ->
+                    case channel.onError of
+                        Just onErrorMsg ->
+                            ( model, Cmd.none, Just onErrorMsg )
+
+                        Nothing ->
+                            ( model, Cmd.none, Nothing )
+
+                Nothing ->
+                    ( model, Cmd.none, Nothing )
+
 
 {-| Connect the socket
 -}
@@ -266,6 +279,7 @@ connect ports socket parentMsg =
         Sub.batch
             [ ports.channelsCreated ChannelsCreated
             , ports.channelMessage (\( topic, event, payload ) -> ChannelMessage topic event payload)
+            , ports.channelError ChannelError
             , ports.pushReply parsePushReply
             , Time.every tickInterval Tick
             ]
@@ -361,3 +375,6 @@ mapMsg func msg =
 
         ChannelMessage a b c ->
             ChannelMessage a b c
+
+        ChannelError a ->
+            ChannelError a

@@ -25,6 +25,7 @@ type Msg msg
     | ChannelPushOk Topic PushRef JD.Value
     | ChannelPushError Topic PushRef JD.Value
     | ChannelMessage Topic Event JD.Value
+    | ChannelError Topic
 
 
 type SocketState

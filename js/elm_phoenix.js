@@ -75,6 +75,11 @@ export function init(app) {
           return payload
         }
 
+        channel.onError(() => {
+          log("Error on channel", channel.topic)
+          app.ports.channelError.send(channel.topic)
+        })
+
         let push = channel.join()
         pushHandlers(push, channel, "join", null, data.onHandlers)
 
