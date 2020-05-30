@@ -25,6 +25,10 @@ to
   Phoenix.push socket myPush
 ```
 
+## Javascript
+- add call to init
+- Remove /websocket from end of endpoint as Phoenix JS adds this itself
+
 ## Not yet implemented
 
 ```
